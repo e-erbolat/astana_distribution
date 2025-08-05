@@ -47,6 +47,7 @@ class ExcelExportService {
     for (int invoiceIndex = 0; invoiceIndex < invoices.length; invoiceIndex++) {
       final invoice = invoices[invoiceIndex];
       
+      
       // Заголовок накладной (строка 1)
       var cell1 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow));
       cell1.value = 'MELLO ASTANA';
