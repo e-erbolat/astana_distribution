@@ -128,12 +128,6 @@
       "languageVersion": "3.0"
     },
     {
-      "name": "file_picker",
-      "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/file_picker-8.3.7",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
       "name": "file_saver",
       "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/file_saver-0.2.14",
       "packageUri": "lib/",
@@ -192,12 +186,6 @@
       "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/flutter_lints-3.0.2",
       "packageUri": "lib/",
       "languageVersion": "3.1"
-    },
-    {
-      "name": "flutter_plugin_android_lifecycle",
-      "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.28",
-      "packageUri": "lib/",
-      "languageVersion": "3.6"
     },
     {
       "name": "flutter_test",
@@ -494,8 +482,32 @@
       "languageVersion": "3.5"
     },
     {
+      "name": "url_launcher",
+      "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/url_launcher-6.3.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.6"
+    },
+    {
+      "name": "url_launcher_android",
+      "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.17",
+      "packageUri": "lib/",
+      "languageVersion": "3.6"
+    },
+    {
+      "name": "url_launcher_ios",
+      "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "url_launcher_linux",
       "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "url_launcher_macos",
+      "rootUri": "file:///Users/ye.yerbolat/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },

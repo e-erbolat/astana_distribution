@@ -13,6 +13,10 @@ import 'package:flutter/services.dart';
 import '../services/firebase_service.dart';
 import '../models/product.dart';
 import '../services/cash_register_service.dart';
+import '../services/invoice_service.dart';
+import '../models/invoice.dart';
+import 'analytics_screen.dart';
+import 'profile_screen.dart';
 
 // Если есть отдельный экран профиля, импортируйте его, иначе будет заглушка
 
@@ -29,13 +33,21 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0; // Добавлено для bottom navigation
   double _totalCashAmount = 0.0;
   final CashRegisterService _cashRegisterService = CashRegisterService();
+  final InvoiceService _invoiceService = InvoiceService();
+
+  // Счетчики для бейджей
+  int _countReview = 0;
+  int _countPacking = 0;
+  int _countDelivery = 0;
+  int _countDelivered = 0;
+  int _countPayment = 0;
 
   List<Widget> get _tabBodies => [
     _InvoicesTab(user: _user),
     OutletScreen(),
     SalesRepScreen(),
     WarehouseScreen(),
-    Center(child: Text('Профиль', style: TextStyle(fontSize: 24))),
+    AnalyticsScreen(),
   ];
 
   @override
@@ -43,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadUser();
     _loadCashAmount();
+    _loadInvoiceCounters();
   }
 
   @override
@@ -93,22 +106,43 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadInvoiceCounters() async {
+    try {
+      final results = await Future.wait<int>([
+        _invoiceService.getInvoiceCountByStatus(InvoiceStatus.review),
+        _invoiceService.getInvoiceCountByStatus(InvoiceStatus.packing),
+        _invoiceService.getInvoiceCountByStatus(InvoiceStatus.delivery),
+        _invoiceService.getInvoiceCountByStatus(InvoiceStatus.delivered),
+        _invoiceService.getInvoiceCountByStatus(InvoiceStatus.paymentChecked),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _countReview = results[0];
+        _countPacking = results[1];
+        _countDelivery = results[2];
+        _countDelivered = results[3];
+        _countPayment = results[4];
+      });
+    } catch (e) {
+      // проглатываем ошибку, бейджи необязательны
+    }
+  }
+
   Widget _buildAdminInvoicesTab(BuildContext context) {
     final isAdmin = _user?.role == 'admin' || _user?.role == 'superadmin';
     final sections = [
       if (isAdmin) ...[
-        {'emoji': '🍦', 'label': 'Входящие накладные', 'route': '/admin_incoming_invoices'},
-        {'emoji': '🔨', 'label': 'На сборке', 'route': '/admin_packing_invoices'},
-        {'emoji': '🚚', 'label': 'Передан на доставку', 'route': '/admin_delivery_invoices'},
-        {'emoji': '✅', 'label': 'Доставлен', 'route': '/admin_delivered_invoices'},
-        {'emoji': '✔️', 'label': 'Проверка оплат', 'route': '/admin_payment_check_invoices'},
+        {'emoji': '🍦', 'label': 'Входящие накладные', 'route': '/admin_incoming_invoices', 'count': _countReview},
+        {'emoji': '🔨', 'label': 'На сборке', 'route': '/admin_packing_invoices', 'count': _countPacking},
+        {'emoji': '🚚', 'label': 'Передан на доставку', 'route': '/admin_delivery_invoices', 'count': _countDelivery},
+        {'emoji': '✅', 'label': 'Доставлен', 'route': '/admin_delivered_invoices', 'count': _countDelivered},
+        {'emoji': '✔️', 'label': 'Проверка оплат', 'route': '/admin_payment_check_invoices', 'count': _countPayment},
         {'emoji': '📦', 'label': 'Архив накладных', 'route': '/invoice_list'},
         if (_user?.role == 'admin' || _user?.role == 'superadmin')
           {'emoji': '💰', 'label': 'Касса', 'route': '/cash_register'},
         if (_user?.role == 'admin' || _user?.role == 'superadmin')
           {'emoji': '💸', 'label': 'Расходы', 'route': '/cash_expenses'},
-        {'emoji': '📤', 'label': 'Импорт данных', 'route': '/import'},
-        {'emoji': '📊', 'label': 'Статистика', 'route': '/import'},
+
       ]
     ];
     return Column(
@@ -128,13 +162,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListTile(
                       leading: Text(s['emoji'] as String, style: const TextStyle(fontSize: 28)),
                       title: Text(s['label'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if ((s['count'] as int?) != null && (s['count'] as int) > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                (s['count'] as int).toString(),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right),
+                        ],
+                      ),
                       onTap: () {
                         Navigator.pushNamed(context, s['route'] as String).then((_) {
                           // Обновляем кассу после возврата с экрана кассы
                           if (s['route'] == '/cash_register' && (_user?.role == 'admin' || _user?.role == 'superadmin')) {
                             _loadCashAmount();
                           }
+                          // Обновляем бейджи при возврате
+                          _loadInvoiceCounters();
                         });
                       },
                     ),
@@ -169,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
     print('[HomeScreen] build: показывать кассу = ${_user?.role == 'admin' || _user?.role == 'superadmin'}');
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Мои накладные")),
+        appBar: AppBar(title: const Text("Загрузка...")),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -192,16 +246,28 @@ class _HomeScreenState extends State<HomeScreen> {
       if (isAdmin)
         {'icon': Icons.location_city, 'label': 'Отчёт по точкам', 'route': '/outlet_report'},
       if (isAdmin)
-                {'icon': Icons.people_alt, 'label': 'Отчёт по представителям', 'route': '/sales_rep_report'},
+        {'icon': Icons.people_alt, 'label': 'Отчёт по представителям', 'route': '/sales_rep_report'},
+      if (isAdmin)
         {'icon': Icons.file_upload, 'label': 'Импорт данных', 'route': '/import'},
-        {'icon': Icons.storefront, 'label': 'Торговые точки', 'route': '/outlets'},
-        {'icon': Icons.add_box, 'label': 'Создать накладную', 'route': '/create_invoice'},
+      {'icon': Icons.add_box, 'label': 'Создать накладную', 'route': '/create_invoice'},
     ];
 
-    String appBarTitle = 'Мои накладные';
-    if (_selectedIndex == 1) appBarTitle = 'Торговые точки';
-    if (_selectedIndex == 2) appBarTitle = 'Торговые представители';
-    if (_selectedIndex == 3) appBarTitle = 'Каталоги';
+    String appBarTitle;
+    if (_user?.role == 'admin' || _user?.role == 'superadmin') {
+      // Для админов
+      appBarTitle = 'Мои накладные';
+      if (_selectedIndex == 1) appBarTitle = 'Торговые точки';
+      if (_selectedIndex == 2) appBarTitle = 'Торговые представители';
+      if (_selectedIndex == 3) appBarTitle = 'Каталоги';
+      if (_selectedIndex == 4) appBarTitle = 'Аналитика';
+    } else {
+      // Для торговых представителей
+      appBarTitle = 'Мои накладные';
+      if (_selectedIndex == 1) appBarTitle = 'Торговые точки';
+      if (_selectedIndex == 2) appBarTitle = 'Торговые представители';
+      if (_selectedIndex == 3) appBarTitle = 'Каталоги';
+      if (_selectedIndex == 4) appBarTitle = 'Аналитика';
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFFCF8FF),
       appBar: AppBar(
@@ -214,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: false,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          if (_user?.role == 'admin' || _user?.role == 'superadmin')
+          if ((_user?.role == 'admin' || _user?.role == 'superadmin') && _selectedIndex != 4)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -247,13 +313,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+          // Кнопка профиля для всех вкладок
           IconButton(
-            icon: const Icon(Icons.file_upload, color: Colors.black),
-            onPressed: () {
-              Navigator.pushNamed(context, '/import');
+            icon: const Icon(Icons.person, color: Colors.black),
+            onPressed: () async {
+              final user = await AuthService().getCurrentUser();
+              if (user == null) return;
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (_) => ProfileSettingsSheet(user: user),
+              );
             },
-            tooltip: 'Импорт данных',
+            tooltip: 'Профиль',
           ),
+
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.black),
             onPressed: () async {
@@ -299,8 +376,8 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Каталог',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Профиль',
+            icon: Icon(Icons.analytics),
+            label: 'Аналитика',
           ),
         ],
       ),

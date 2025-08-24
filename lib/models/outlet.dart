@@ -4,11 +4,13 @@ class Outlet {
   final String address;
   final String phone;
   final String contactPerson;
-  final String region;
+  final String? region;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? creatorId;
   final String? creatorName;
+  final double? latitude;
+  final double? longitude;
 
   Outlet({
     required this.id,
@@ -16,11 +18,13 @@ class Outlet {
     required this.address,
     required this.phone,
     required this.contactPerson,
-    required this.region,
+    this.region,
     required this.createdAt,
     required this.updatedAt,
     this.creatorId,
     this.creatorName,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toMap() {
@@ -30,11 +34,13 @@ class Outlet {
       'address': address,
       'phone': phone,
       'contactPerson': contactPerson,
-      'region': region,
+      if (region != null && region!.isNotEmpty) 'region': region,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'creatorId': creatorId,
       'creatorName': creatorName,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     };
   }
 
@@ -45,11 +51,21 @@ class Outlet {
       address: map['address'] ?? '',
       phone: map['phone'] ?? '',
       contactPerson: map['contactPerson'] ?? '',
-      region: map['region'] ?? '',
+      region: map['region'],
       createdAt: DateTime.parse(map['createdAt']),
       updatedAt: DateTime.parse(map['updatedAt']),
       creatorId: map['creatorId'],
       creatorName: map['creatorName'],
+      latitude: _toDoubleOrNull(map['latitude']),
+      longitude: _toDoubleOrNull(map['longitude']),
     );
+  }
+
+  static double? _toDoubleOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is double) return v;
+    if (v is int) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
   }
 } 

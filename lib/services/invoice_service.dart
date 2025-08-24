@@ -117,13 +117,10 @@ class InvoiceService {
       final querySnapshot = await _firestore
           .collection('invoices')
           .where('salesRepId', isEqualTo: salesRepId)
+          .orderBy('date', descending: true)
           .get();
 
-      // Сортируем в коде по дате (по убыванию)
-      final sortedDocs = querySnapshot.docs.toList()
-        ..sort((a, b) => (b.data()['date'] as Timestamp).compareTo(a.data()['date'] as Timestamp));
-
-      return sortedDocs.map((doc) {
+      return querySnapshot.docs.map((doc) {
         final data = doc.data();
         return Invoice(
           id: data['id'],
@@ -198,21 +195,48 @@ class InvoiceService {
   // Получить накладные по статусу
   Future<List<Invoice>> getInvoicesByStatus(int status) async {
     try {
+      // Сначала пробуем с сортировкой (требует индекс)
       final querySnapshot = await _firestore
           .collection('invoices')
           .where('status', isEqualTo: status)
+          .orderBy('date', descending: true)
           .get();
-      
-      // Сортируем в коде по дате (по убыванию)
-      final sortedDocs = querySnapshot.docs.toList()
-        ..sort((a, b) => (b.data()['date'] as Timestamp).compareTo(a.data()['date'] as Timestamp));
-      
-      return sortedDocs.map((doc) {
+      return querySnapshot.docs.map((doc) {
         final data = doc.data();
         return Invoice.fromMap(data);
       }).toList();
     } catch (e) {
-      throw Exception('Ошибка загрузки накладных по статусу: $e');
+      print('[InvoiceService] Ошибка с сортировкой, пробуем без неё: $e');
+      try {
+        // Fallback: получаем без сортировки и сортируем в памяти
+        final querySnapshot = await _firestore
+            .collection('invoices')
+            .where('status', isEqualTo: status)
+            .get();
+        final invoices = querySnapshot.docs.map((doc) {
+          final data = doc.data();
+          return Invoice.fromMap(data);
+        }).toList();
+        
+        // Сортируем в памяти по дате (новые сначала)
+        invoices.sort((a, b) => b.date.compareTo(a.date));
+        return invoices;
+      } catch (fallbackError) {
+        throw Exception('Ошибка загрузки накладных по статусу: $fallbackError');
+      }
+    }
+  }
+
+  // Получить количество накладных по статусу
+  Future<int> getInvoiceCountByStatus(int status) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('invoices')
+          .where('status', isEqualTo: status)
+          .get();
+      return querySnapshot.docs.length;
+    } catch (e) {
+      throw Exception('Ошибка получения количества накладных по статусу: $e');
     }
   }
 
@@ -223,13 +247,9 @@ class InvoiceService {
           .collection('invoices')
           .where('status', isEqualTo: status)
           .where('salesRepId', isEqualTo: salesRepId)
+          .orderBy('date', descending: true)
           .get();
-      
-      // Сортируем в коде по дате (по убыванию)
-      final sortedDocs = querySnapshot.docs.toList()
-        ..sort((a, b) => (b.data()['date'] as Timestamp).compareTo(a.data()['date'] as Timestamp));
-      
-      return sortedDocs.map((doc) {
+      return querySnapshot.docs.map((doc) {
         final data = doc.data();
         return Invoice(
           id: data['id'],
@@ -269,16 +289,12 @@ class InvoiceService {
       final querySnapshot = await _firestore
           .collection('invoices')
           .where('status', isEqualTo: status)
+          .orderBy('date', descending: true)
           .get();
       print('[InvoiceService] Получено накладных по статусу $status: ${querySnapshot.docs.length}');
       final filteredDocs = querySnapshot.docs.where((doc) => doc.data()['salesRepId'] == salesRepId);
       print('[InvoiceService] После фильтрации по salesRepId $salesRepId: ${filteredDocs.length}');
-      
-      // Сортируем в коде по дате (по убыванию)
-      final sortedDocs = filteredDocs.toList()
-        ..sort((a, b) => (b.data()['date'] as Timestamp).compareTo(a.data()['date'] as Timestamp));
-      
-      return sortedDocs.map((doc) {
+      return filteredDocs.map((doc) {
         final data = doc.data();
         return Invoice.fromMap(data);
       }).toList();

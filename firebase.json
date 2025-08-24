@@ -1,1 +1,33 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"astana-distribution","appId":"1:1030264475163:android:bad9bf16420679b09732be","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"astana-distribution","appId":"1:1030264475163:ios:6355ef969d568d619732be","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"astana-distribution","configurations":{"ios":"1:1030264475163:ios:6355ef969d568d619732be"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore_rules.txt",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "astana-distribution",
+          "appId": "1:1030264475163:android:bad9bf16420679b09732be",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "astana-distribution",
+          "appId": "1:1030264475163:ios:6355ef969d568d619732be",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "astana-distribution",
+          "configurations": {
+            "ios": "1:1030264475163:ios:6355ef969d568d619732be"
+          }
+        }
+      }
+    }
+  }
+}

@@ -22,8 +22,9 @@ import 'screens/admin_payment_check_invoices_screen.dart';
 import 'screens/cash_register_screen.dart';
 import 'screens/cash_expense_create_screen.dart';
 import 'screens/cash_expenses_screen.dart';
-import 'screens/sales_rep_profile_screen.dart';
-import 'screens/import_screen.dart';
+import 'screens/data_export_screen.dart';
+import 'screens/outlet_sales_analytics_screen.dart';
+import 'screens/product_sales_analytics_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,8 +64,9 @@ class MyApp extends StatelessWidget {
         '/cash_register': (_) => const CashRegisterScreen(),
         '/cash_expense_create': (_) => const CashExpenseCreateScreen(),
         '/cash_expenses': (_) => const CashExpensesScreen(),
-        '/sales_rep_profile': (_) => SalesRepProfileScreen(),
-        '/import': (_) => ImportScreen(),
+        '/data_export': (_) => const DataExportScreen(),
+        '/outlet_analytics': (_) => const OutletSalesAnalyticsScreen(),
+        '/product_analytics': (_) => const ProductSalesAnalyticsScreen(),
       },
     );
   }
