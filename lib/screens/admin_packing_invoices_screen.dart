@@ -263,7 +263,7 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
         'orderType': 'SATU',
         'photoRequired': false,
         'totalPrice': invoice.totalAmount,
-        'cityId': '151010000',
+        'cityId': '710000000',
         'plannedDeliveryDate': invoice.date.toDate().millisecondsSinceEpoch,
         'deliveryAddress': {
           'apartment': _extractApt(outlet.address),
