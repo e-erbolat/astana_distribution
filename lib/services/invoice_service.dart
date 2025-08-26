@@ -286,6 +286,7 @@ class InvoiceService {
   Future<List<Invoice>> getInvoicesByStatusAndSalesRepSimple(int status, String salesRepId) async {
     try {
       print('[InvoiceService] getInvoicesByStatusAndSalesRepSimple: статус=$status, salesRepId=$salesRepId');
+      // Сначала пробуем с сортировкой (требует индекс)
       final querySnapshot = await _firestore
           .collection('invoices')
           .where('status', isEqualTo: status)
@@ -299,8 +300,28 @@ class InvoiceService {
         return Invoice.fromMap(data);
       }).toList();
     } catch (e) {
-      print('[InvoiceService] Ошибка в getInvoicesByStatusAndSalesRepSimple: $e');
-      throw Exception('Ошибка загрузки накладных по статусу и торговому: $e');
+      print('[InvoiceService] Ошибка с сортировкой, пробуем без неё: $e');
+      try {
+        // Fallback: получаем без сортировки и фильтруем в памяти
+        final querySnapshot = await _firestore
+            .collection('invoices')
+            .where('status', isEqualTo: status)
+            .get();
+        print('[InvoiceService] Fallback: получено накладных по статусу $status: ${querySnapshot.docs.length}');
+        final invoices = querySnapshot.docs.map((doc) {
+          final data = doc.data();
+          return Invoice.fromMap(data);
+        }).toList();
+        
+        // Фильтруем по salesRepId и сортируем по дате
+        final filteredInvoices = invoices.where((inv) => inv.salesRepId == salesRepId).toList();
+        filteredInvoices.sort((a, b) => b.date.compareTo(a.date));
+        print('[InvoiceService] Fallback: после фильтрации по salesRepId $salesRepId: ${filteredInvoices.length}');
+        return filteredInvoices;
+      } catch (fallbackError) {
+        print('[InvoiceService] Ошибка в fallback: $fallbackError');
+        throw Exception('Ошибка загрузки накладных по статусу и торговому: $fallbackError');
+      }
     }
   }
 
