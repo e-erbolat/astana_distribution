@@ -45,10 +45,12 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
       if (widget.forSales) {
         final user = await AuthService().getCurrentUser();
         if (user == null) throw Exception('Пользователь не найден');
-        print('[AdminIncomingInvoicesScreen] Текущий пользователь: uid= [33m${user.uid} [0m, role=${user.role}, salesRepId=${user.salesRepId}');
+        print('[AdminIncomingInvoicesScreen] Текущий пользователь: uid=${user.uid}, role=${user.role}, salesRepId=${user.salesRepId}');
         if (user.salesRepId == null) throw Exception('У пользователя не заполнен salesRepId!');
+        print('[AdminIncomingInvoicesScreen] Загружаем накладные для торгового представителя...');
         invoices = await _invoiceService.getInvoicesByStatusAndSalesRepSimple(InvoiceStatus.review, user.salesRepId!);
       } else {
+        print('[AdminIncomingInvoicesScreen] Загружаем накладные для админа...');
         invoices = await _invoiceService.getInvoicesByStatus(InvoiceStatus.review);
       }
       print('[DEBUG] Загружено накладных: ${invoices.length}');
@@ -64,10 +66,6 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
         _outlets = outlets;
         _isLoading = false;
       });
-      print('[DEBUG] После фильтрации (по умолчанию): ${_filteredInvoices.length}');
-      for (final inv in _filteredInvoices) {
-        print('[DEBUG] [FILTERED] Invoice id=${inv.id}, status=${inv.status} (type: ${inv.status.runtimeType}), salesRepId=${inv.salesRepId}, outletId=${inv.outletId}');
-      }
     } catch (e, st) {
       debugPrint('[AdminIncomingInvoicesScreen] Ошибка: $e\n$st');
       setState(() {
@@ -79,27 +77,19 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
 
   void _filterInvoices() {
     List<Invoice> filtered = _invoices;
-    print('[DEBUG] Фильтрация накладных: всего ${filtered.length}');
     if (_selectedSalesRepId != null && _selectedSalesRepId != 'all') {
       filtered = filtered.where((inv) => inv.salesRepId == _selectedSalesRepId).toList();
-      print('[DEBUG] После фильтрации по salesRepId ($_selectedSalesRepId): ${filtered.length}');
     }
 
     if (_dateFrom != null) {
       filtered = filtered.where((inv) => inv.date.toDate().isAfter(_dateFrom!) || inv.date.toDate().isAtSameMomentAs(_dateFrom!)).toList();
-      print('[DEBUG] После фильтрации по дате с ($_dateFrom): ${filtered.length}');
     }
     if (_dateTo != null) {
       filtered = filtered.where((inv) => inv.date.toDate().isBefore(_dateTo!.add(const Duration(days: 1)))).toList();
-      print('[DEBUG] После фильтрации по дате по ($_dateTo): ${filtered.length}');
     }
     setState(() {
       _filteredInvoices = filtered;
     });
-    print('[DEBUG] Итоговое количество накладных после всех фильтров: ${_filteredInvoices.length}');
-    for (final inv in _filteredInvoices) {
-      print('[DEBUG] [FINAL] Invoice id=${inv.id}, status=${inv.status} (type: ${inv.status.runtimeType}), salesRepId=${inv.salesRepId}, outletId=${inv.outletId}');
-    }
   }
 
   Future<void> _selectDate(BuildContext context, bool isFrom) async {
@@ -188,12 +178,12 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
         actions: [
           IconButton(
             icon: _isExporting 
-              ? SizedBox(
+              ? const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Icon(Icons.share),
+              : const Icon(Icons.share),
             tooltip: 'Поделиться Excel',
             onPressed: _isExporting ? null : _exportInvoicesToExcel,
           ),
@@ -354,7 +344,7 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
+                                          const Text(
                                             'Общая сумма:',
                                             style: TextStyle(
                                               fontSize: 16,
@@ -364,7 +354,7 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
                                           ),
                                           Text(
                                             '${totalSum.toStringAsFixed(2)} ₸',
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.deepPurple,
@@ -401,10 +391,19 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
     }
     final customNumber = '$dateNum-$suffix';
     final bgColor = index % 2 == 0 ? Colors.white : Colors.grey.shade100;
-    return Container(
-      color: bgColor,
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-      child: Column(
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InvoiceScreen(invoiceId: invoice.id),
+          ),
+        );
+      },
+      child: Container(
+        color: bgColor,
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        child: Column(
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -453,27 +452,85 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                                                 IconButton(
-                           icon: Icon(Icons.edit, color: Colors.deepPurple),
-                          tooltip: 'Редактировать',
+                        // Кнопка деталей
+                        IconButton(
+                          icon: Icon(Icons.receipt_long, color: Colors.blue),
+                          tooltip: 'Детали накладной',
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => InvoiceCreateScreen(invoiceToEdit: invoice),
+                                builder: (context) => InvoiceScreen(invoiceId: invoice.id),
                               ),
-                            ).then((_) => _loadData());
+                            );
                           },
                         ),
-                        if (!widget.forSales)
-                                                     IconButton(
-                             icon: Icon(Icons.check_circle, color: Colors.green),
+                        if (invoice.status == InvoiceStatus.review) ...[
+                          IconButton(
+                            icon: Icon(Icons.edit, color: Colors.deepPurple),
+                            tooltip: 'Редактировать',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => InvoiceCreateScreen(invoiceToEdit: invoice),
+                                ),
+                              ).then((_) => _loadData());
+                            },
+                          ),
+                        if (!widget.forSales) ...[
+                          IconButton(
+                            icon: Icon(Icons.check_circle, color: Colors.green),
                             tooltip: 'Принять',
                             onPressed: () async {
                               await _invoiceService.updateInvoiceStatus(invoice.id, InvoiceStatus.packing);
                               _loadData();
                             },
                           ),
+                          IconButton(
+                            icon: Icon(Icons.arrow_back, color: Colors.orange),
+                            tooltip: 'Отклонить (вернуть на предыдущий этап)',
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Отклонить накладную?'),
+                                  content: Text('Накладная будет возвращена на предыдущий этап. Продолжить?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false), 
+                                      child: Text('Отмена')
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(context, true), 
+                                      child: Text('Отклонить'),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                try {
+                                  await _invoiceService.rejectInvoiceToPreviousStatus(invoice.id, invoice.status);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Накладная отклонена и возвращена на предыдущий этап'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  _loadData();
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Ошибка отклонения: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
                                                  IconButton(
                            icon: Icon(Icons.delete, color: Colors.red),
                           tooltip: 'Отклонить',
@@ -533,6 +590,7 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
                               Share.share(buffer.toString());
                             },
                           ),
+                        ],
                       ],
                     ),
                   ],
@@ -638,6 +696,7 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
             ),
           ],
         ],
+      ),
       ),
     );
   }

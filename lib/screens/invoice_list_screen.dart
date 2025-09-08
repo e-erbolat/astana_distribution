@@ -16,6 +16,7 @@ import 'package:file_saver/file_saver.dart' as fs;
 import 'package:mime/mime.dart';
 // import 'dart:html' as html; // УДАЛЕНО
 import '../screens/invoice_create_screen.dart'; // Added import for InvoiceCreateScreen
+import '../screens/invoice_screen.dart'; // Added import for InvoiceScreen
 
 class InvoiceListScreen extends StatefulWidget {
   const InvoiceListScreen({super.key});
@@ -71,9 +72,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     List<Invoice> invoices;
     final salesReps = await _firebaseService.getSalesReps();
     if (user != null && user.role == 'sales') {
-      invoices = await _invoiceService.getInvoicesBySalesRep(user.uid);
+      invoices = await _invoiceService.getInvoicesByStatusAndSalesRep('6', user.uid);
     } else {
-      invoices = await _invoiceService.getAllInvoices();
+      invoices = await _invoiceService.getInvoicesByStatus(6);
     }
 
     // ЛОГИРОВАНИЕ
@@ -731,9 +732,61 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                   // Кнопка деталей
                                   IconButton(
                                     icon: const Icon(Icons.info_outline),
-                                    onPressed: () => _showInvoiceDetails(invoice),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => InvoiceScreen(invoiceId: invoice.id),
+                                        ),
+                                      );
+                                    },
                                     tooltip: 'Детали накладной',
                                   ),
+                                  // Кнопка отклонения (только для суперадмина)
+                                  if (_currentUser?.role == 'superadmin')
+                                    IconButton(
+                                      icon: const Icon(Icons.arrow_back, color: Colors.orange),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Отклонить накладную?'),
+                                            content: const Text('Вы уверены, что хотите отклонить накладную и вернуть её на предыдущий этап?'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context, false),
+                                                child: const Text('Отмена'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  Navigator.pop(context);
+                                                  try {
+                                                    await _invoiceService.rejectInvoiceToPreviousStatus(invoice.id, invoice.status);
+                                                    _loadUserAndInvoices();
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(
+                                                        content: const Text('Накладная отклонена и возвращена на предыдущий этап'),
+                                                        backgroundColor: Colors.orange,
+                                                      ),
+                                                    );
+                                                  } catch (e) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text('Ошибка отклонения: $e'),
+                                                        backgroundColor: Colors.red,
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                                                child: const Text('Отклонить'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                      tooltip: 'Отклонить (вернуть на предыдущий этап)',
+                                    ),
                                   // Чекбокс для выбора
                                   Checkbox(
                                     value: isSelected,
@@ -741,7 +794,14 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                   ),
                                 ],
                               ),
-                              onTap: () => _showInvoiceDetails(invoice),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => InvoiceScreen(invoiceId: invoice.id),
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },

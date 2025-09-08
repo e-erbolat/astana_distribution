@@ -38,7 +38,8 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
   String? _errorMessage;
   Set<String> _selectedInvoiceIds = {};
   bool _selectionMode = false;
-  
+  int cityId = 710000000;
+
   // Шрифты для PDF
   pw.Font? _regularFont;
   pw.Font? _boldFont;
@@ -263,7 +264,7 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
         'orderType': 'SATU',
         'photoRequired': false,
         'totalPrice': invoice.totalAmount,
-        'cityId': '710000000',
+        'cityId': cityId,
         'plannedDeliveryDate': invoice.date.toDate().millisecondsSinceEpoch,
         'deliveryAddress': {
           'apartment': _extractApt(outlet.address),
@@ -344,7 +345,7 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
         context: context,
         builder: (context) => AlertDialog(
           title: Text('Отклонить накладную?'),
-          content: Text('Вы уверены, что хотите отклонить накладную №${invoice.id} и вернуть её на рассмотрение?'),
+          content: Text('Вы уверены, что хотите отклонить накладную №${invoice.id} и вернуть её на предыдущий этап?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -353,19 +354,28 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                // Возвращаем накладную в статус "на рассмотрении"
-                await _invoiceService.updateInvoiceStatus(invoice.id, InvoiceStatus.review);
-                _loadData();
-                
-                // Показываем сообщение об успехе
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Накладная возвращена на рассмотрение'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                try {
+                  // Используем новый метод отклонения
+                  await _invoiceService.rejectInvoiceToPreviousStatus(invoice.id, invoice.status);
+                  _loadData();
+                  
+                  // Показываем сообщение об успехе
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Накладная отклонена и возвращена на предыдущий этап'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Ошибка отклонения: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: Text('Отклонить'),
             ),
           ],
@@ -775,6 +785,21 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  if (!_selectionMode) ...[
+                                    IconButton(
+                                      icon: Icon(Icons.info_outline, color: Colors.blue),
+                                      tooltip: 'Детали накладной',
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => InvoiceScreen(invoiceId: invoice.id),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    SizedBox(width: 8),
+                                  ],
                                   Text(
                                     '${invoice.totalAmount.toStringAsFixed(2)} ₸',
                                     style: const TextStyle(
@@ -793,7 +818,12 @@ class _AdminPackingInvoicesScreenState extends State<AdminPackingInvoicesScreen>
                               onTap: _selectionMode
                                   ? () => _toggleInvoiceSelection(invoice.id)
                                   : () {
-                                      // Открыть детали накладной
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => InvoiceScreen(invoiceId: invoice.id),
+                                        ),
+                                      );
                                     },
                               onLongPress: () {
                                 if (!_selectionMode) {

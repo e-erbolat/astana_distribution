@@ -65,7 +65,6 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
       if (widget.forSales) {
         final user = await AuthService().getCurrentUser();
         if (user == null) throw Exception('Пользователь не найден');
-        print('[AdminDeliveredInvoicesScreen] Текущий пользователь: uid=${user.uid}, role=${user.role}, salesRepId=${user.salesRepId}');
         if (user.salesRepId == null) throw Exception('У пользователя не заполнен salesRepId!');
         invoices = await _invoiceService.getInvoicesByStatusAndSalesRepSimple(InvoiceStatus.delivered, user.salesRepId!);
       } else {
@@ -78,16 +77,7 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
         _salesReps = salesReps;
         _isLoading = false;
       });
-      
-      // Добавляем отладочную информацию
-      print('[AdminDeliveredInvoicesScreen] Загружено накладных: ${invoices.length}');
-      for (var invoice in invoices) {
-        print('[AdminDeliveredInvoicesScreen] Накладная ${invoice.id}: статус = ${invoice.status}');
-      }
-      
-      debugPrint('[AdminDeliveredInvoicesScreen] Загружено накладных: "${invoices.length.toString()}"');
     } catch (e, st) {
-      debugPrint('[AdminDeliveredInvoicesScreen] Ошибка: $e\n$st');
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -342,10 +332,9 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
                             : (bankAmount > 0)
                                 ? 'bank'
                                 : 'cash';
-                        await _invoiceService.updateInvoicePayment(invoice.id, isPaid, paymentType, comment,
+                        await _invoiceService.updateInvoicePayment(invoice.id, paymentType, comment,
                             bankAmount: bankAmount, cashAmount: cashAmount);
                         await _invoiceService.updateInvoiceStatus(invoice.id, InvoiceStatus.paymentChecked);
-                        await _invoiceService.updateInvoiceAcceptedByAdmin(invoice.id, true);
                         _loadData();
                       }
                     : null,
@@ -589,7 +578,6 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
                                              final cash = _cashAmounts[inv.id] ?? 0.0;
                                              await _invoiceService.updateInvoicePayment(
                                                inv.id,
-                                               true, // isPaid = true
                                                (bank > 0 && cash > 0)
                                                    ? 'mixed'
                                                    : (bank > 0)
@@ -603,7 +591,6 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
                                                inv.id,
                                                InvoiceStatus.paymentChecked, // Переводим в статус "Проверка оплат"
                                              );
-                                             await _invoiceService.updateInvoiceAcceptedByAdmin(inv.id, true);
                                            }
                                            _loadData();
                                          }
@@ -852,41 +839,91 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
                       },
                     ),
                     const SizedBox(height: 12),
-                    Builder(
-                      builder: (context) {
-                        final bank = _bankAmounts[invoice.id] ?? invoice.totalAmount;
-                        final cash = _cashAmounts[invoice.id] ?? 0.0;
-                        final total = bank + cash;
-                        final isSumValid = (total - invoice.totalAmount).abs() < 0.01;
-                        return ElevatedButton(
-                          child: Text('Принять оплату'),
-                          onPressed: _selectedInvoiceIds.contains(invoice.id) && isSumValid
-                              ? () async {
-                                  await _invoiceService.updateInvoicePayment(
-                                    invoice.id,
-                                    true,
-                                    (bank > 0 && cash > 0)
-                                        ? 'mixed'
-                                        : (bank > 0)
-                                            ? 'bank'
-                                            : 'cash',
-                                    '',
-                                    bankAmount: bank,
-                                    cashAmount: cash,
-                                  );
-                                  await _invoiceService.updateInvoice(
-                                    invoice.copyWith(
-                                      status: InvoiceStatus.paymentChecked,
-                                      acceptedByAdmin: true,
-                                      bankAmount: bank,
-                                      cashAmount: cash,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Builder(
+                            builder: (context) {
+                              final bank = _bankAmounts[invoice.id] ?? invoice.totalAmount;
+                              final cash = _cashAmounts[invoice.id] ?? 0.0;
+                              final total = bank + cash;
+                              final isSumValid = (total - invoice.totalAmount).abs() < 0.01;
+                              return ElevatedButton(
+                                child: Text('Принять оплату'),
+                                onPressed: _selectedInvoiceIds.contains(invoice.id) && isSumValid
+                                    ? () async {
+                                        await _invoiceService.updateInvoicePayment(
+                                          invoice.id,
+                                          (bank > 0 && cash > 0)
+                                              ? 'mixed'
+                                              : (bank > 0)
+                                                  ? 'bank'
+                                                  : 'cash',
+                                          '',
+                                          bankAmount: bank,
+                                          cashAmount: cash,
+                                        );
+                                        await _invoiceService.updateInvoiceStatus(
+                                          invoice.id,
+                                          InvoiceStatus.paymentChecked, // Переводим в статус "Проверка оплат"
+                                        );
+                                        _loadData();
+                                      }
+                                    : null,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Отклонить накладную?'),
+                                  content: const Text('Вы уверены, что хотите отклонить накладную и вернуть её на предыдущий этап?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Отмена'),
                                     ),
-                                  );
-                                  _loadData();
-                                }
-                              : null,
-                        );
-                      },
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        Navigator.pop(context);
+                                        try {
+                                          await _invoiceService.rejectInvoiceToPreviousStatus(invoice.id, invoice.status);
+                                          _loadData();
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Накладная отклонена и возвращена на предыдущий этап'),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Ошибка отклонения: $e'),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                                      child: const Text('Отклонить'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Отклонить'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -915,6 +952,57 @@ class _AdminDeliveredInvoicesScreenState extends State<AdminDeliveredInvoicesScr
                       label: Text('Редактировать'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text('Отклонить накладную?'),
+                            content: Text('Вы уверены, что хотите отклонить накладную и вернуть её на предыдущий этап?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text('Отмена'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  try {
+                                    await _invoiceService.rejectInvoiceToPreviousStatus(invoice.id, invoice.status);
+                                    _loadData();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Накладная отклонена и возвращена на предыдущий этап'),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Ошибка отклонения: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                                child: Text('Отклонить'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      icon: Icon(Icons.cancel, color: Colors.white),
+                      label: Text('Отклонить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12),
                       ),
