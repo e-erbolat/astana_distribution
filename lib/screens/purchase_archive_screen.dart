@@ -112,6 +112,7 @@ class _PurchaseArchiveScreenState extends State<PurchaseArchiveScreen> {
             const SizedBox(height: 16),
             const Text(
               'Архив пуст',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             Text(
