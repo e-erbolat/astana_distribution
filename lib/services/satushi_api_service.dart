@@ -8,7 +8,7 @@ import 'firebase_service.dart';
 
 class SatushiApiService {
   static const String _baseUrl = 'https://api.satushi.me/api/v1';
-  static const String _warehouseId = '173'; // Константа warehouseId
+  static const String _warehouseId = '12801629'; // Константа warehouseId
 
   final FirebaseService _firebaseService = FirebaseService();
 

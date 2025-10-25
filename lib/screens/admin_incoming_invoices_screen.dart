@@ -45,12 +45,10 @@ class _AdminIncomingInvoicesScreenState extends State<AdminIncomingInvoicesScree
       if (widget.forSales) {
         final user = await AuthService().getCurrentUser();
         if (user == null) throw Exception('Пользователь не найден');
-        print('[AdminIncomingInvoicesScreen] Текущий пользователь: uid=${user.uid}, role=${user.role}, salesRepId=${user.salesRepId}');
+        print('[AdminIncomingInvoicesScreen] Текущий пользователь: uid= [33m${user.uid} [0m, role=${user.role}, salesRepId=${user.salesRepId}');
         if (user.salesRepId == null) throw Exception('У пользователя не заполнен salesRepId!');
-        print('[AdminIncomingInvoicesScreen] Загружаем накладные для торгового представителя...');
         invoices = await _invoiceService.getInvoicesByStatusAndSalesRepSimple(InvoiceStatus.review, user.salesRepId!);
       } else {
-        print('[AdminIncomingInvoicesScreen] Загружаем накладные для админа...');
         invoices = await _invoiceService.getInvoicesByStatus(InvoiceStatus.review);
       }
       print('[DEBUG] Загружено накладных: ${invoices.length}');
